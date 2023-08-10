@@ -80,8 +80,9 @@ class DevicesActivity : AppCompatActivity() {
 
     // Inicializa o Bluetooth.
     private fun initBluetooth() {
+    // Se já está buscando, retornamos nada
         if (bluetoothAdapter.isDiscovering) return
-
+    // Se o bluetooth estiver ligado, começa a busca por dispositivos
         if (bluetoothAdapter.isEnabled) {
             enableDiscovery()
         } else {
@@ -91,11 +92,17 @@ class DevicesActivity : AppCompatActivity() {
         }
     }
 
-    // Solicita que o dispositivo Bluetooth seja descoberto pelos outros dispositivos.
     private fun enableDiscovery() {
+        // Cria um novo objeto Intent, que representa uma intenção ou ação a ser executada.
+        // No contexto do Bluetooth, uma Intent é usada para iniciar uma ação específica,
+        // como solicitar que o dispositivo Bluetooth fique visível para outros dispositivos.
         val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+
+        // Inicia uma atividade para solicitar a descoberta Bluetooth visível,
+        // passando o Intent criado e um código de solicitação (REQUEST_ENABLE_DISCOVERY) como parâmetros.
         startActivityForResult(intent, REQUEST_ENABLE_DISCOVERY)
     }
+
 
     // Monitora a descoberta Bluetooth.
     private fun monitorDiscovery() {
