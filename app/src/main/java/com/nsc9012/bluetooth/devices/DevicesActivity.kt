@@ -18,25 +18,32 @@ import com.nsc9012.bluetooth.R
 import com.nsc9012.bluetooth.extension.*
 import kotlinx.android.synthetic.main.activity_devices.*
 
+// Classe que representa a atividade responsável por exibir dispositivos Bluetooth e iniciar a descoberta.
 class DevicesActivity : AppCompatActivity() {
 
+    // Os membros dentro de um companion object podem ser acessados diretamente usando o nome da classe,
+    // sem a necessidade de criar uma instância da classe.
     companion object {
         const val ENABLE_BLUETOOTH = 1
         const val REQUEST_ENABLE_DISCOVERY = 2
         const val REQUEST_ACCESS_COARSE_LOCATION = 3
     }
 
-    /* Broadcast receiver to listen for discovery results. */
+    // BroadcastReceiver para escutar os resultados da descoberta Bluetooth.
+    // bluetoothDiscoveryResult é uma instância da classe BroadcastReceiver
+    // Ao instanciarmos o BroadcastReceiver, utilizamos "object :", que é usada para criar objetos únicos (ou instâncias únicas) de uma classe
     private val bluetoothDiscoveryResult = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == BluetoothDevice.ACTION_FOUND) {
+                // O método getParcelableExtra é usado para extrair um objeto BluetoothDevice da intenção. O operador !! é usado para forçar o desempacotamento,
+                // assumindo que o objeto não é nulo (o que pode causar uma exceção se o objeto for nulo).
                 val device: BluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)!!
                 deviceListAdapter.addDevice(device)
             }
         }
     }
 
-    /* Broadcast receiver to listen for discovery updates. */
+    // BroadcastReceiver para escutar as atualizações da descoberta Bluetooth.
     private val bluetoothDiscoveryMonitor = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -61,6 +68,7 @@ class DevicesActivity : AppCompatActivity() {
         initUI()
     }
 
+    // Inicializa a interface do usuário.
     private fun initUI() {
         title = "Bluetooth Scanner"
         recycler_view_devices.adapter = deviceListAdapter
@@ -68,32 +76,34 @@ class DevicesActivity : AppCompatActivity() {
         recycler_view_devices.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
         button_discover.setOnClickListener { initBluetooth() }
         ConnectionManager.registerListener(connectionEventListener)
-
     }
 
+    // Inicializa o Bluetooth.
     private fun initBluetooth() {
-
         if (bluetoothAdapter.isDiscovering) return
 
         if (bluetoothAdapter.isEnabled) {
             enableDiscovery()
         } else {
-            // Bluetooth isn't enabled - prompt user to turn it on
+            // O Bluetooth não está habilitado - solicita ao usuário para ativá-lo.
             val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             startActivityForResult(intent, ENABLE_BLUETOOTH)
         }
     }
 
+    // Solicita que o dispositivo Bluetooth seja descoberto pelos outros dispositivos.
     private fun enableDiscovery() {
         val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
         startActivityForResult(intent, REQUEST_ENABLE_DISCOVERY)
     }
 
+    // Monitora a descoberta Bluetooth.
     private fun monitorDiscovery() {
         registerReceiver(bluetoothDiscoveryMonitor, IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_STARTED))
         registerReceiver(bluetoothDiscoveryMonitor, IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED))
     }
 
+    // Inicia a descoberta de dispositivos Bluetooth.
     private fun startDiscovery() {
         if (hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) {
             if (bluetoothAdapter.isEnabled && !bluetoothAdapter.isDiscovering) {
@@ -108,6 +118,7 @@ class DevicesActivity : AppCompatActivity() {
         }
     }
 
+    // Inicia o processo de descoberta de dispositivos Bluetooth.
     private fun beginDiscovery() {
         registerReceiver(bluetoothDiscoveryResult, IntentFilter(BluetoothDevice.ACTION_FOUND))
         deviceListAdapter.clearDevices()
@@ -115,6 +126,7 @@ class DevicesActivity : AppCompatActivity() {
         bluetoothAdapter.startDiscovery()
     }
 
+    // Lida com a resposta do usuário sobre permissões.
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         when (requestCode) {
             REQUEST_ACCESS_COARSE_LOCATION -> {
@@ -127,6 +139,7 @@ class DevicesActivity : AppCompatActivity() {
         }
     }
 
+    // Lida com os resultados das atividades iniciadas para resultados (startActivityForResult).
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         when (requestCode) {
             ENABLE_BLUETOOTH -> if (resultCode == Activity.RESULT_OK) {
@@ -140,32 +153,24 @@ class DevicesActivity : AppCompatActivity() {
         }
     }
 
+    // Libera recursos quando a atividade é destruída.
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(bluetoothDiscoveryMonitor)
         unregisterReceiver(bluetoothDiscoveryResult)
     }
 
+    // Listener para eventos de conexão Bluetooth.
     private val connectionEventListener by lazy {
         ConnectionEventListener().apply {
-
-
             onConnectionSetupComplete = { gatt ->
-
-
-              toast(gatt.device.name)
-
+                toast(gatt.device.name)
             }
-
             onDisconnect = {
                 runOnUiThread {
-
                     toast("Disconnect")
-
                 }
             }
-
         }
     }
-
 }

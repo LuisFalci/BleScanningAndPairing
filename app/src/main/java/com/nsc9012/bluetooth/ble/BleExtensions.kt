@@ -120,7 +120,7 @@ fun BluetoothGattDescriptor.isWritable(): Boolean =
     containsPermission(BluetoothGattDescriptor.PERMISSION_WRITE)
 
 fun BluetoothGattDescriptor.containsPermission(permission: Int): Boolean =
-    permissions and permission != 0
+    permissions and permission != 0 
 
 /**
  * Convenience extension function that returns true if this [BluetoothGattDescriptor]
