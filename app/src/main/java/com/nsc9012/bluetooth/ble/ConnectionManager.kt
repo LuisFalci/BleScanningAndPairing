@@ -21,12 +21,7 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
-import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothProfile
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.os.Handler
 import android.os.Looper
 import com.neuphony.music.ui.blutooth.ble.*
@@ -56,18 +51,6 @@ object ConnectionManager {
     // Operação pendente atualmente em execução.
     private var pendingOperation: BleOperationType? = null
 
-    // Função para obter os serviços de um dispositivo Bluetooth.
-    fun servicesOnDevice(device: BluetoothDevice): List<BluetoothGattService>? =
-        deviceGattMap[device]?.services
-
-    // Inicia a escuta para mudanças no estado de vinculação do dispositivo Bluetooth.
-    fun listenToBondStateChanges(context: Context) {
-        context.applicationContext.registerReceiver(
-            broadcastReceiver,
-            IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
-        )
-    }
-
     // Registra um ouvinte para eventos de conexão.
     fun registerListener(listener: ConnectionEventListener) {
         if (listeners.map { it.get() }.contains(listener)) {
@@ -77,116 +60,12 @@ object ConnectionManager {
         listeners = listeners.filter { it.get() != null }.toMutableSet()
     }
 
-    // Remove o registro de um ouvinte de eventos de conexão.
-    fun unregisterListener(listener: ConnectionEventListener) {
-        var toRemove: WeakReference<ConnectionEventListener>? = null
-        listeners.forEach {
-            if (it.get() == listener) {
-                toRemove = it
-            }
-        }
-        toRemove?.let {
-            listeners.remove(it)
-        }
-    }
-
-    // Inicia a conexão com um dispositivo Bluetooth.
-    fun connect(device: BluetoothDevice, context: Context) {
-        if (device.isConnected()) {
-            // Já está conectado ao dispositivo.
-        } else {
-            enqueueOperation(Connect(device, context.applicationContext))
-        }
-    }
-
     // Encerra a conexão com um dispositivo Bluetooth.
     fun teardownConnection(device: BluetoothDevice) {
         if (device.isConnected()) {
             enqueueOperation(Disconnect(device))
         } else {
             // Não está conectado ao dispositivo, não é possível encerrar a conexão.
-        }
-    }
-
-    // Lê uma característica de um dispositivo Bluetooth.
-    fun readCharacteristic(device: BluetoothDevice, characteristic: BluetoothGattCharacteristic) {
-        if (device.isConnected() && characteristic.isReadable()) {
-            enqueueOperation(CharacteristicRead(device, characteristic.uuid))
-        } else if (!characteristic.isReadable()) {
-            // Característica não é legível.
-        } else if (!device.isConnected()) {
-            // Não está conectado ao dispositivo, não é possível ler a característica.
-        }
-    }
-
-    // Escreve em uma característica de um dispositivo Bluetooth.
-    fun writeCharacteristic(
-        device: BluetoothDevice,
-        characteristic: BluetoothGattCharacteristic,
-        payload: ByteArray
-    ) {
-        val writeType = when {
-            characteristic.isWritable() -> BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-            characteristic.isWritableWithoutResponse() -> {
-                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            }
-            else -> {
-                // Característica não é escrevível.
-                return
-            }
-        }
-        if (device.isConnected()) {
-            enqueueOperation(CharacteristicWrite(device, characteristic.uuid, writeType, payload))
-        } else {
-            // Não está conectado ao dispositivo, não é possível escrever na característica.
-        }
-    }
-
-    // Lê um descritor de um dispositivo Bluetooth.
-    fun readDescriptor(device: BluetoothDevice, descriptor: BluetoothGattDescriptor) {
-        if (device.isConnected() && descriptor.isReadable()) {
-            enqueueOperation(DescriptorRead(device, descriptor.uuid))
-        } else if (!descriptor.isReadable()) {
-            // Descritor não é legível.
-        } else if (!device.isConnected()) {
-            // Não está conectado ao dispositivo, não é possível ler o descritor.
-        }
-    }
-
-    // Escreve em um descritor de um dispositivo Bluetooth.
-    fun writeDescriptor(
-        device: BluetoothDevice,
-        descriptor: BluetoothGattDescriptor,
-        payload: ByteArray
-    ) {
-        if (device.isConnected() && (descriptor.isWritable() || descriptor.isCccd())) {
-            enqueueOperation(DescriptorWrite(device, descriptor.uuid, payload))
-        } else if (!device.isConnected()) {
-            // Não está conectado ao dispositivo, não é possível escrever no descritor.
-        } else if (!descriptor.isWritable() && !descriptor.isCccd()) {
-            // Descritor não é escrevível.
-        }
-    }
-
-    // Habilita notificações para uma característica de um dispositivo Bluetooth.
-    fun enableNotifications(device: BluetoothDevice, characteristic: BluetoothGattCharacteristic) {
-        if (device.isConnected() && (characteristic.isIndicatable() || characteristic.isNotifiable())) {
-            enqueueOperation(EnableNotifications(device, characteristic.uuid))
-        } else if (!device.isConnected()) {
-            // Não está conectado ao dispositivo, não é possível habilitar notificações.
-        } else if (!characteristic.isIndicatable() && !characteristic.isNotifiable()) {
-            // Característica não suporta notificações/indicações.
-        }
-    }
-
-    // Desabilita notificações para uma característica de um dispositivo Bluetooth.
-    fun disableNotifications(device: BluetoothDevice, characteristic: BluetoothGattCharacteristic) {
-        if (device.isConnected() && (characteristic.isIndicatable() || characteristic.isNotifiable())) {
-            enqueueOperation(DisableNotifications(device, characteristic.uuid))
-        } else if (!device.isConnected()) {
-            // Não está conectado ao dispositivo, não é possível desabilitar notificações.
-        } else if (!characteristic.isIndicatable() && !characteristic.isNotifiable()) {
-            // Característica não suporta notificações/indicações.
         }
     }
 
@@ -343,7 +222,6 @@ object ConnectionManager {
     // Implementa um callback BluetoothGattCallback para manipular eventos de conexão e operações GATT.
     private val callback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            val deviceAddress = gatt.device.address
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -495,7 +373,6 @@ object ConnectionManager {
             value: ByteArray,
             characteristic: BluetoothGattCharacteristic
         ) {
-            val charUuid = characteristic.uuid
             val notificationsEnabled =
                 value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) ||
                         value.contentEquals(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE)
@@ -522,27 +399,5 @@ object ConnectionManager {
             }
         }
     }
-
-    // Implementa um BroadcastReceiver para capturar mudanças no estado de vínculo do Bluetooth.
-    private val broadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            with(intent) {
-                if (action == BluetoothDevice.ACTION_BOND_STATE_CHANGED) {
-                    val device = getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                    val previousBondState = getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, -1)
-                    val bondState = getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1)
-                    val bondTransition = "${previousBondState.toBondStateDescription()} para " + bondState.toBondStateDescription()
-                }
-            }
-        }
-
-        private fun Int.toBondStateDescription() = when (this) {
-            BluetoothDevice.BOND_BONDED -> "VINCULADO"
-            BluetoothDevice.BOND_BONDING -> "VINCULANDO"
-            BluetoothDevice.BOND_NONE -> "NÃO VINCULADO"
-            else -> "ERRO: $this"
-        }
-    }
-
     private fun BluetoothDevice.isConnected() = deviceGattMap.containsKey(this)
 }
